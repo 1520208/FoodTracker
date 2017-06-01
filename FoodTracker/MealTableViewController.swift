@@ -20,6 +20,15 @@ class MealTableViewController: UITableViewController {
         super.viewDidLoad()
         //use the edit button item provided by the following line of code
         navigationItem.leftBarButtonItem = editButtonItem
+        
+        //load any saved meals, otherwise load sample data
+        if let savedMeals = loadMeals(){
+            meals += savedMeals
+        }else{
+            //load the sample data
+            loadSampleMeals()
+        }
+        
         //load the sample data
         loadSampleMeals()
     }
@@ -74,6 +83,7 @@ class MealTableViewController: UITableViewController {
         if editingStyle == .delete {
             // Delete the row from the data source
             meals.remove(at: indexPath.row)
+            saveMeals()
             tableView.deleteRows(at: [indexPath], with: .fade)
         } else if editingStyle == .insert {
             // Create a new instance of the appropriate class, insert it into the array, and add a new row to the table view
@@ -112,8 +122,40 @@ class MealTableViewController: UITableViewController {
                 meals.append(meal)
                 tableView.insertRows(at: [newIndexPath], with: .automatic)
             }
+            //save the meals
+            saveMeals()
         }
     }
+    // MARK: - Navigation
+    
+    // In a storyboard-based application, you will often want to do a little preparation before navigation
+    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
+        super.prepare(for: segue, sender: sender)
+        switch(segue.identifier ?? ""){
+        case "AddItem":
+            os_log("Adding a new Meal", log:OSLog.default, type: .debug)
+            
+        case "ShowDetail":
+            guard let mealDetailViewController = segue.destination as? MealViewController else {
+                fatalError("Unexpected destination: \(segue.destination)")
+            }
+            guard let selectedMealCell = sender as? MealTableViewCell else {
+                fatalError("Unexpected sender: \(sender)")
+            }
+            guard let indexPath = tableView.indexPath(for: selectedMealCell) else {
+                fatalError("The selected cell is not being displayed by the table")
+            }
+            
+            let selectedMeal = meals[indexPath.row]
+            mealDetailViewController.meal = selectedMeal
+            
+        default:
+            fatalError("Unexpected Seque Identifier; \(segue.identifier)")
+            
+        }
+    }
+    
+
     
     
     //MARK: private Methods
@@ -137,35 +179,21 @@ class MealTableViewController: UITableViewController {
         
         meals += [meal1, meal2, meal3]
     }
-
     
-    // MARK: - Navigation
-
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        super.prepare(for: segue, sender: sender)
-        switch(segue.identifier ?? ""){
-            case "AddItem":
-                os_log("Adding a new Meal", log:OSLog.default, type: .debug)
-            
-            case "ShowDetail":
-                guard let mealDetailViewController = segue.destination as? MealViewController else {
-                    fatalError("Unexpected destination: \(segue.destination)")
-            }
-                guard let selectedMealCell = sender as? MealTableViewCell else {
-                    fatalError("Unexpected sender: \(sender)")
-            }
-                guard let indexPath = tableView.indexPath(for: selectedMealCell) else {
-                    fatalError("The selected cell is not being displayed by the table")
-            }
-            
-            let selectedMeal = meals[indexPath.row]
-            mealDetailViewController.meal = selectedMeal
-            
-        default:
-            fatalError("Unexpected Seque Identifier; \(segue.identifier)")
-            
+    //method attempts to archive the meals array to a specific location and returns true if it's successful
+    private func saveMeals(){
+        let isSuccessfulSave = NSKeyedArchiver.archiveRootObject(meals, toFile: Meal.ArchiveURL.path)
+        if isSuccessfulSave{
+            os_log("Meals successfully saved.", log: OSLog.default, type: .debug)
+        }else{
+            os_log("Failed to save meals...", log: OSLog.default, type: .error)
         }
+        
+    }
+
+    private func loadMeals() -> [Meal]?{
+        return NSKeyedUnarchiver.unarchiveObject(withFile: Meal.ArchiveURL.path) as?
+        [Meal]
     }
     
 
